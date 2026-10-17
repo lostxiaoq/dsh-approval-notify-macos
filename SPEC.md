@@ -47,8 +47,12 @@ README.md           中文说明：做什么、怎么装、配置项、测试开
 ## 怎么发
 
 1. 如果设置了环境变量 `DSH_APPROVAL_NOTIFY_LOG=<文件路径>`（测试开关）：往该文件追加一行 JSON `{"title","subtitle","body","sound"}`，**不执行任何命令**。写入可以同步（`appendFileSync`），失败吞掉。
-2. 否则，如果找得到 `terminal-notifier`（检查 `/opt/homebrew/bin/terminal-notifier`、`/usr/local/bin/terminal-notifier`）：`terminal-notifier -title … -subtitle … -message … -sound <sound> -activate com.deepseek.dsh -group dsh-approval`（点击通知会切回 dsh）。
-3. 否则用 `/usr/bin/osascript -e <appleScriptFor(n)>`。
+2. 否则，如果找得到 `terminal-notifier`：`terminal-notifier -title … -subtitle … -message … -sound <sound> -activate com.deepseek.dsh -group dsh-approval`（点击通知会切回 dsh）。
+   - 查找顺序：环境变量 `DSH_APPROVAL_NOTIFY_TN`（测试开关；设置了就只用它，文件不存在则视为没找到）→ `/opt/homebrew/bin/terminal-notifier` → `/usr/local/bin/terminal-notifier`。
+   - **补发**：terminal-notifier 启动失败（spawn 报错）、退出码非 0（例如没有通知权限时退出码 3）、或超时，都改用第 3 步的 `osascript` **补发一次**。退出码为 0 则不补发。
+3. 否则（或补发时）用 osascript：`<osascript> -e <appleScriptFor(n)>`，`<osascript>` 默认 `/usr/bin/osascript`，可用环境变量 `DSH_APPROVAL_NOTIFY_OSASCRIPT` 覆盖（测试开关）。osascript 失败就算了，不再重试。
+4. 子进程超时默认 5000 毫秒，可用环境变量 `DSH_APPROVAL_NOTIFY_TIMEOUT_MS` 覆盖（测试开关，取值限制在 100–60000），超时用 `SIGKILL` 结束子进程。
+5. 整个发送过程仍然**不阻塞监听器**：补发也发生在后台的通知流程里，`next()` 不等它。
 
 ## 配置项（cordis.patch.yml 里可写 config）
 
@@ -64,6 +68,9 @@ README.md           中文说明：做什么、怎么装、配置项、测试开
 |---|---|
 | `DSH_APPROVAL_NOTIFY_LOG` | 写日志代替真正发通知 |
 | `DSH_APPROVAL_NOTIFY_FRONT` | 模拟前台 App 的 bundle id，设置后不再调用 `lsappinfo` |
+| `DSH_APPROVAL_NOTIFY_TN` | 指定 terminal-notifier 路径（测试时指向假脚本） |
+| `DSH_APPROVAL_NOTIFY_OSASCRIPT` | 指定 osascript 路径（测试时指向假脚本） |
+| `DSH_APPROVAL_NOTIFY_TIMEOUT_MS` | 子进程超时毫秒数（100–60000） |
 
 ## 约束
 
