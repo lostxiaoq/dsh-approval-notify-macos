@@ -40,6 +40,8 @@ DSH="/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"
 "$DSH" plugin --profile desktop add github:lostxiaoq/dsh-approval-notify
 ```
 
+> 安装时 dsh 可能会提示「git-hosted plugins build on install via their prepare script…allowBuilds」。本插件没有任何构建脚本，这条提示可以忽略，插件已正常装好（可以检查 `~/.dsh/profiles/desktop/node_modules/dsh-approval-notify/` 是否存在）。
+
 **2. 把插件加进启用列表**：编辑 `~/.dsh/profiles/desktop/package.json`，在 `dsh.profile.bundles` 数组末尾追加 `"dsh-approval-notify"`：
 
 ```json
