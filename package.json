@@ -1,6 +1,6 @@
 {
   "name": "dsh-approval-notify",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "DeepSeek Harness 插件：每当 dsh 需要用户审批操作时，发一条 macOS 系统通知提醒用户回来处理（只提醒，不作答）。",
   "type": "module",
   "main": "lib/index.js",

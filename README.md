@@ -95,12 +95,14 @@ DeepSeek Harness（dsh）插件：**每当 dsh 需要你审批一个操作**（�
    ```
 
    `-activate com.deepseek.dsh` 表示**点击通知会切回 dsh**（推荐安装：`brew install terminal-notifier`，不装也能用，只是点击通知不会跳转）。
-3. **osascript**：兜底使用 `/usr/bin/osascript -e 'display notification … with title … subtitle … sound name …'`。这种方式的局限性：
+3. **osascript**：兜底 / 补发时使用 `/usr/bin/osascript -e 'display notification … with title … subtitle … sound name …'`。这种方式的局限性：
    - 通知的 App 图标来自“脚本编辑器”（Script Editor）；
    - 点击通知不会切回 dsh；
    - 如果你的 macOS 对“脚本编辑器”关闭了通知权限，就看不到这一条通知。可以在「系统设置 → 通知 → 脚本编辑器」里打开。
 
-所有命令都是异步执行、5 秒超时，且**不经过 shell**（参数以数组形式传入，天然免注入）。
+**失败补发**：如果 terminal-notifier 启动失败（例如文件在但不可执行）、退出码非 0（例如没有通知权限时退出码 3）或超时，会改用 osascript **补发一次**；退出码为 0 则不补发。osascript 也失败就算了，不再重试。补发同样在后台进行，不会等待、不会阻塞审批，也不会抛错。
+
+所有命令都是异步执行、默认 5 秒超时（可用 `DSH_APPROVAL_NOTIFY_TIMEOUT_MS` 改，范围 100–60000 毫秒，超时用 `SIGKILL` 结束），且**不经过 shell**（参数以数组形式传入，天然免注入）。
 
 ### 前台检测
 
@@ -118,6 +120,9 @@ lsappinfo info -only bundleid "$(lsappinfo front)"
 |---|---|
 | `DSH_APPROVAL_NOTIFY_LOG` | 设为文件路径后，不真正发通知，而是往该文件追加一行 JSON：`{"title","subtitle","body","sound"}` |
 | `DSH_APPROVAL_NOTIFY_FRONT` | 模拟前台 App 的 bundle id。设置后不再调用 `lsappinfo`，用它判断“dsh 是否在前台” |
+| `DSH_APPROVAL_NOTIFY_TN` | 指定 terminal-notifier 的路径（通常指向假脚本）。设置后**只用它**，不再找默认位置；文件不存在视为没找到，直接走 osascript |
+| `DSH_APPROVAL_NOTIFY_OSASCRIPT` | 指定 osascript 的路径（默认 `/usr/bin/osascript`，通常指向假脚本） |
+| `DSH_APPROVAL_NOTIFY_TIMEOUT_MS` | 子进程超时毫秒数，取值夹在 `100`–`60000` 之间（非法值回退默认 5000） |
 
 手工试一下（不会弹任何系统通知）：
 
@@ -140,7 +145,7 @@ cat /tmp/approval.log
 node --test "tests/accept/*.test.mjs"
 ```
 
-验收测试全部使用上面两个测试开关，不会弹出系统通知。
+验收测试全部使用上面的测试开关（假命令脚本 + 日志模式），不会弹出系统通知。自己写测试或手工验证时请同样如此：要么设置 `DSH_APPROVAL_NOTIFY_LOG`，要么用假脚本指定 `DSH_APPROVAL_NOTIFY_TN` 和 `DSH_APPROVAL_NOTIFY_OSASCRIPT`，不要直接调用真实的 `terminal-notifier` 或 `/usr/bin/osascript`。
 
 `lib/index.js` 的导出：
 
