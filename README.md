@@ -25,42 +25,44 @@ DeepSeek Harness（dsh）插件：**每当 dsh 需要你审批一个操作**（�
 
 ## 安装
 
-要求：macOS + 已安装的 DeepSeek Harness 桌面版（捆绑 dsh）。插件零依赖，不需要 `npm install` 任何东西。
+要求：macOS + DeepSeek Harness 桌面版（0.2.x）。插件零依赖。推荐顺手装上 [terminal-notifier](https://github.com/julienXX/terminal-notifier)，点击通知就能切回 dsh：
 
-**方式一：手动装进 dsh 配置目录**
+```sh
+brew install terminal-notifier
+```
 
-1. 把本目录整个复制（或软链）到 dsh 配置目录的 `node_modules` 下，名字必须是 `dsh-approval-notify`：
+> 首次使用 terminal-notifier 时，需要在「系统设置 → 通知」里找到 **terminal-notifier** 并打开「允许通知」。不装也能用，插件会改用 `osascript` 发通知（点击不会跳转）。
 
-   ```sh
-   mkdir -p ~/.dsh/profiles/desktop/node_modules
-   cp -R /path/to/dsh-approval-notify ~/.dsh/profiles/desktop/node_modules/dsh-approval-notify
-   ```
+**1. 用 dsh 自带的命令行安装插件**（桌面版 App 内置了 dsh 命令行，路径如下）：
 
-2. 在 `~/.dsh/profiles/desktop/package.json` 的 `dsh.profile.bundles` 数组里追加一行：
+```sh
+DSH="/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"
+"$DSH" plugin --profile desktop add github:lostxiaoq/dsh-approval-notify
+```
 
-   ```json
-   "bundles": [
-     "@deepseek-ai/dsh-base",
-     "@deepseek-ai/dsh-web-app",
-     "dsh-approval-notify"
-   ]
-   ```
+**2. 把插件加进启用列表**：编辑 `~/.dsh/profiles/desktop/package.json`，在 `dsh.profile.bundles` 数组末尾追加 `"dsh-approval-notify"`：
 
-   如果 `package.json` 的 `dependencies` 里有本包名，请保持其版本为 `file:` 或已安装的版本，否则 dsh 启动时会尝试从网络安装。
+```json
+"bundles": [
+  "@deepseek-ai/dsh-base",
+  "@deepseek-ai/dsh-web-app",
+  "dsh-approval-notify"
+]
+```
 
-3. 重启 DeepSeek Harness。
+**3. 重启 DeepSeek Harness。** 之后每当 dsh 请求审批、而 dsh 窗口不在最前面时，就会收到通知。
 
-`bundles` 里的每一项都会应用它自己的 `cordis.patch.yml`。本插件的 `cordis.patch.yml` 只有一行插入：
+> 想在 headless 模式（`dsh --profile headless`）里也启用，把上面两步里的 `desktop` 换成 `headless` 即可。
+>
+> 升级插件：先 `"$DSH" plugin --profile desktop remove dsh-approval-notify`，再重新执行第 1、2 步（只重复 `add` 时 pnpm 可能沿用缓存里的旧代码）。
+
+本插件的 `cordis.patch.yml` 只插入一行，不覆盖任何已有配置：
 
 ```yaml
 - insert:
     - id: approval-notify
       name: 'dsh-approval-notify'
 ```
-
-**方式二：发到 npm 后由插件管理器安装**
-
-本包的 `package.json` 已声明 `"dsh": { "bundle": { "patch": "./cordis.patch.yml" } }`，发布到 npm 后可直接在 dsh 的插件管理器里安装，无需再手改配置。
 
 ## 配置项
 
@@ -163,6 +165,10 @@ node --test "tests/accept/*.test.mjs"
 - 通知正文不包含工具参数（审批请求本身不携带参数）。
 - 通知权限由 macOS 管理：如果终端通知被系统关闭，插件不会报错，只是你收不到。
 
+## 怎么做出来的
+
+需求规格（[SPEC.md](SPEC.md)）和验收测试（`tests/accept/`）由 Claude 编写，插件代码由 DeepSeek Harness 自己（模型 DeepSeek-V4.1-Flash）实现，再由 Claude 审查并在真实的 dsh 里做端到端验证。
+
 ## 许可
 
-MIT
+[MIT](LICENSE)
