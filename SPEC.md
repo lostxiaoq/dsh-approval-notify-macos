@@ -6,6 +6,7 @@ DeepSeek Harness（dsh）插件。每当 dsh 需要用户审批一个操作（�
 
 - 审批服务是内置包 `@deepseek-ai/dsh-user-approval`。它把每个审批请求通过 **`approval/request` 瀑布事件（waterfall）** 依次交给各个监听器：监听器返回一个结果就算作答，否则调用 `next()` 交给下一个。最终应答者是桌面界面（`dsh-client-ui-approval`）。
 - 请求对象 `req` 的字段：`agent`、`toolName`（工具名）、`reason`（原因，可选）、`displayReason`（本地化展示文案，可选）、`callId`（可选）、`signal`（AbortSignal，可选）。**没有工具参数**。
+- **`displayReason` 实际是 `{ en, zh }` 字典**（执行者实现时发现，例如沙箱升权传 `{en:"Allow this operation with …", zh:"允许本次操作使用 … 权限：…"}`），也可能是纯字符串：字符串直接用，字典优先取 `zh`，没有就取 `en`。
 - 插件用 `ctx.on("approval/request", listener, { prepend: true })` 注册，`prepend: true` 保证排在最终应答者前面（参考 `@vectorize-io/hindsight-coding-agents` 的 `ctx.on("agent/pre-step", …, { prepend: true })`）。
 - 插件包结构参考本机已装的 `~/.dsh/profiles/desktop/node_modules/dsh-plugin-wallpaper-engine`：ESM（`"type": "module"`），入口导出 `apply(ctx, config)`，并 `export default { apply }`；`package.json` 里 `"dsh": { "bundle": { "patch": "./cordis.patch.yml" } }`；`cordis.patch.yml` 用 `insert` 注册一行。
 - 原有审批服务源码可读：用 `ELECTRON_RUN_AS_NODE=1 "/Applications/DeepSeek Harness.app/Contents/MacOS/DeepSeek Harness" -e "…"` 读取 `/Applications/DeepSeek Harness.app/Contents/Resources/app.asar/dsh/node_modules/@deepseek-ai/dsh-user-approval/README.zh.md` 和 `lib/index.js`。
@@ -25,7 +26,7 @@ README.md           中文说明：做什么、怎么装、配置项、测试开
 - `buildNotification(req)` → `{ title, subtitle, body }`
   - `title`：`"DeepSeek Harness"`
   - `subtitle`：`"⚠️ 有操作等你批准"`
-  - `body`：`"<toolName>：<displayReason ?? reason>"`；没有原因时只写工具名；没有工具名用 `"未知操作"`。去掉首尾空白，换行替换成空格，**最多 160 个字符**（超出截断并以 `…` 结尾，总长仍 ≤160）。
+  - `body`：`"<toolName>：<displayReason（按上面规则取文本） ?? reason>"`；没有原因时只写工具名；没有工具名用 `"未知操作"`。去掉首尾空白，换行替换成空格，**最多 160 个字符**（超出截断并以 `…` 结尾，总长仍 ≤160）。
 - `appleScriptFor(n)` → 用于 `osascript -e` 的脚本字符串：`display notification "<body>" with title "<title>" subtitle "<subtitle>" sound name "<sound>"`，三个文本里的 `\` 和 `"` 都要转义（`\` → `\\`，`"` → `\"`）。
 - `export default { apply }`
 

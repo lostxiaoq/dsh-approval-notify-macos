@@ -85,6 +85,12 @@ test('buildNotification 正文规则', () => {
   assert.equal(n.subtitle, '⚠️ 有操作等你批准');
 });
 
+test('displayReason 是中英文字典时优先取中文', () => {
+  assert.equal(buildNotification({ toolName: 'bash', displayReason: { en: 'Allow this', zh: '允许本次操作' } }).body, 'bash：允许本次操作');
+  assert.equal(buildNotification({ toolName: 'bash', displayReason: { en: 'Allow this' } }).body, 'bash：Allow this');
+  assert.ok(!buildNotification({ toolName: 'bash', displayReason: { en: 'x', zh: 'y' } }).body.includes('[object Object]'));
+});
+
 test('appleScriptFor 转义引号和反斜杠', () => {
   const s = appleScriptFor({ title: 'T', subtitle: 'S', body: 'say "hi" \\ ok', sound: 'Glass' });
   assert.ok(s.startsWith('display notification "'), s);

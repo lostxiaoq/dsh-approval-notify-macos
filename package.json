@@ -1,0 +1,34 @@
+{
+  "name": "dsh-approval-notify",
+  "version": "0.1.0",
+  "description": "DeepSeek Harness 插件：每当 dsh 需要用户审批操作时，发一条 macOS 系统通知提醒用户回来处理（只提醒，不作答）。",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "approval",
+    "notification",
+    "macos"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,24 @@
+# dsh-approval-notify bundle patch。
+#
+# 只追加一行：把本插件作为新的 bundle 行插入 dsh 配置。
+# 不给它覆盖任何已有行（patch 会整体替换目标行的 `config`，这里没有需要改的既有行）。
+#
+# 需要的配置项可以写在 config 里（全部可选，默认值见下表）：
+#   sound             提示音名，默认 "Glass"
+#   throttleMs        节流间隔（毫秒），默认 3000：间隔内只发第一条，其余跳过；0 表示不节流
+#   notifyWhenFocused dsh 在前台时是否也通知，默认 false
+#
+# 示例：
+#   - insert:
+#       - id: approval-notify
+#         name: 'dsh-approval-notify'
+#         config:
+#           sound: 'Ping'
+#           throttleMs: 5000
+#           notifyWhenFocused: false
+
+- insert:
+    # 监听 `approval/request` 瀑布事件（prepend，排在最终应答者前面），
+    # 只观察、不作答：弹一条 macOS 系统通知提醒用户回来审批。
+    - id: approval-notify
+      name: 'dsh-approval-notify'
