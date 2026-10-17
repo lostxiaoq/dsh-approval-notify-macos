@@ -124,12 +124,12 @@ test('节流：默认 3 秒内只发一条；throttleMs:0 不节流', () => with
 
 test('打包信息：ESM、零依赖、bundle patch 注册', () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
-  assert.equal(pkg.name, 'dsh-approval-notify');
+  assert.equal(pkg.name, 'dsh-approval-notify-macos');
   assert.equal(pkg.type, 'module');
   assert.equal(pkg.dsh?.bundle?.patch, './cordis.patch.yml');
   assert.ok(!pkg.dependencies || Object.keys(pkg.dependencies).length === 0, '不应有运行时依赖');
   const patch = fs.readFileSync(path.join(ROOT, 'cordis.patch.yml'), 'utf8');
   assert.match(patch, /insert/);
-  assert.match(patch, /name:\s*['"]?dsh-approval-notify['"]?/);
+  assert.match(patch, /name:\s*['"]?dsh-approval-notify-macos['"]?/);
   assert.ok(fs.existsSync(path.join(ROOT, 'README.md')));
 });

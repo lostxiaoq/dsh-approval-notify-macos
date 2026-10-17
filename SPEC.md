@@ -1,4 +1,4 @@
-# dsh-approval-notify — 审批时发 macOS 系统通知
+# dsh-approval-notify-macos — 审批时发 macOS 系统通知
 
 DeepSeek Harness（dsh）插件。每当 dsh 需要用户审批一个操作（例如沙箱升权、敏感工具调用），弹一条 macOS 通知提醒用户回到 dsh 处理。**只提醒，不作答**：不能改变、延迟或替代原有的审批流程。
 
@@ -14,8 +14,8 @@ DeepSeek Harness（dsh）插件。每当 dsh 需要用户审批一个操作（�
 ## 文件与接口（验收测试按这里写，名字必须一致）
 
 ```
-package.json        name: "dsh-approval-notify"，type: module，main: lib/index.js，零依赖（不要 dependencies）
-cordis.patch.yml    - insert: [ { id: approval-notify, name: dsh-approval-notify } ]
+package.json        name: "dsh-approval-notify-macos"，type: module，main: lib/index.js，零依赖（不要 dependencies）
+cordis.patch.yml    - insert: [ { id: approval-notify, name: dsh-approval-notify-macos } ]
 lib/index.js        插件本体
 README.md           中文说明：做什么、怎么装、配置项、测试开关
 ```

@@ -1,4 +1,6 @@
-# dsh-approval-notify
+# dsh-approval-notify-macos
+
+> macOS 专用。Windows 用户请看另一位作者的 [dsh-approval-notify](https://www.npmjs.com/package/dsh-approval-notify)（Windows toast 通知）。
 
 DeepSeek Harness（dsh）插件：**每当 dsh 需要你审批一个操作**（例如沙箱升权、敏感工具调用）时，弹一条 **macOS 系统通知**，提醒你回到 dsh 窗口处理。
 
@@ -37,18 +39,18 @@ brew install terminal-notifier
 
 ```sh
 DSH="/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"
-"$DSH" plugin --profile desktop add github:lostxiaoq/dsh-approval-notify
+"$DSH" plugin --profile desktop add dsh-approval-notify-macos
 ```
 
-> 安装时 dsh 可能会提示「git-hosted plugins build on install via their prepare script…allowBuilds」。本插件没有任何构建脚本，这条提示可以忽略，插件已正常装好（可以检查 `~/.dsh/profiles/desktop/node_modules/dsh-approval-notify/` 是否存在）。
+> 也可以直接从 GitHub 装：`add github:lostxiaoq/dsh-approval-notify-macos`。这时 dsh 可能会提示「git-hosted plugins build on install via their prepare script…allowBuilds」，本插件没有任何构建脚本，这条提示可以忽略。
 
-**2. 把插件加进启用列表**：编辑 `~/.dsh/profiles/desktop/package.json`，在 `dsh.profile.bundles` 数组末尾追加 `"dsh-approval-notify"`：
+**2. 把插件加进启用列表**：编辑 `~/.dsh/profiles/desktop/package.json`，在 `dsh.profile.bundles` 数组末尾追加 `"dsh-approval-notify-macos"`：
 
 ```json
 "bundles": [
   "@deepseek-ai/dsh-base",
   "@deepseek-ai/dsh-web-app",
-  "dsh-approval-notify"
+  "dsh-approval-notify-macos"
 ]
 ```
 
@@ -56,14 +58,14 @@ DSH="/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"
 
 > 想在 headless 模式（`dsh --profile headless`）里也启用，把上面两步里的 `desktop` 换成 `headless` 即可。
 >
-> 升级插件：先 `"$DSH" plugin --profile desktop remove dsh-approval-notify`，再重新执行第 1、2 步（只重复 `add` 时 pnpm 可能沿用缓存里的旧代码）。
+> 升级插件：先 `"$DSH" plugin --profile desktop remove dsh-approval-notify-macos`，再重新执行第 1、2 步（只重复 `add` 时 pnpm 可能沿用缓存里的旧代码）。
 
 本插件的 `cordis.patch.yml` 只插入一行，不覆盖任何已有配置：
 
 ```yaml
 - insert:
     - id: approval-notify
-      name: 'dsh-approval-notify'
+      name: 'dsh-approval-notify-macos'
 ```
 
 ## 配置项
@@ -72,7 +74,7 @@ DSH="/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"
 
 ```yaml
 - id: approval-notify
-  name: 'dsh-approval-notify'
+  name: 'dsh-approval-notify-macos'
   config:
     sound: 'Ping'
     throttleMs: 5000

@@ -1,7 +1,7 @@
 {
-  "name": "dsh-approval-notify",
-  "version": "0.1.1",
-  "description": "DeepSeek Harness 插件：每当 dsh 需要用户审批操作时，发一条 macOS 系统通知提醒用户回来处理（只提醒，不作答）。",
+  "name": "dsh-approval-notify-macos",
+  "version": "0.1.2",
+  "description": "DeepSeek Harness 插件（macOS）：每次需要审批时发系统通知，点击跳回 dsh；只提醒，不作答。",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -30,5 +30,17 @@
       "patch": "./cordis.patch.yml"
     }
   },
-  "license": "MIT"
+  "license": "MIT",
+  "author": "lostxiaoq",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lostxiaoq/dsh-approval-notify-macos.git"
+  },
+  "homepage": "https://github.com/lostxiaoq/dsh-approval-notify-macos#readme",
+  "bugs": {
+    "url": "https://github.com/lostxiaoq/dsh-approval-notify-macos/issues"
+  },
+  "os": [
+    "darwin"
+  ]
 }
