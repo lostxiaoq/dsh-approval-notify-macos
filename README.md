@@ -8,6 +8,8 @@ DeepSeek Harness（dsh）插件：**每当 dsh 需要你审批一个操作**（�
 
 > **只提醒，不作答。** 本插件不会批准、不会拒绝，也不会延迟或替代原有的审批流程——它只是在审批请求发生时“顺手喊你一声”。
 
+当前版本：**0.1.3**（安全加固：不再扫描 PATH；TN / osascript / LOG 覆盖仅在 `os.tmpdir()` 下生效；声音白名单；可选不展示原因）。
+
 ## 它会做什么
 
 - 监听 dsh 内置审批服务的 `approval/request` 事件（瀑布式事件，waterfall），排在最终应答者（桌面界面）前面；
@@ -15,15 +17,16 @@ DeepSeek Harness（dsh）插件：**每当 dsh 需要你审批一个操作**（�
 - 通知内容：
   - 标题：`DeepSeek Harness`
   - 副标题：`⚠️ 有操作等你批准`
-  - 正文：`<工具名>：<原因>`，例如 `bash：允许本次操作使用 workspace-write 权限：…`
+  - 正文：默认 `<工具名>：<原因>`，例如 `bash：允许本次操作使用 workspace-write 权限：…`
     - 优先使用审批请求的本地化展示文案（`displayReason`），没有时退回原始原因（`reason`）；
     - 都没有时只写工具名；连工具名都没有时写 `未知操作`；
-    - 换行折成空格、去掉首尾空白，最长 160 个字符（超出截断并以 `…` 结尾）。
+    - 换行折成空格、去掉首尾空白，最长 160 个字符（超出截断并以 `…` 结尾）；
+    - 配置 `includeReason: false` 时正文**只有工具名**（不附带原因，便于隐私场景）。
 - 通知会在以下情况被跳过：
   - **dsh 窗口在最前面**——你已经看得到审批框了（可用 `notifyWhenFocused: true` 关闭这一行为）；
   - **节流**——默认 3 秒内只发第一条，连续弹出多个审批时不会刷屏。
 
-它**不会**拦截审批、**不会**记录工具参数（审批请求本身也不携带参数），**不会**联网，**不会**读写你的其他文件。
+它**不会**拦截审批、**不会**记录工具参数（审批请求本身也不携带参数），**不会**联网，**不会**读写你的其他文件（测试日志覆盖除外，见下文）。
 
 ## 安装
 
@@ -79,22 +82,26 @@ DSH="/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"
     sound: 'Ping'
     throttleMs: 5000
     notifyWhenFocused: false
+    includeReason: true
 ```
 
 也可以直接改本插件的 `cordis.patch.yml`，在 `insert` 的那一行里写 `config`。
 
 | 字段 | 默认 | 含义 |
 |---|---|---|
-| `sound` | `"Glass"` | 提示音名称（macOS 系统声音，如 `Glass`、`Ping`、`Submarine`、`Hero`、`Funk`；即 `/System/Library/Sounds/*.aiff` 的文件名） |
+| `sound` | `"Glass"` | 提示音名称。仅允许 macOS 系统声音白名单：`Basso`、`Blow`、`Bottle`、`Frog`、`Funk`、`Glass`、`Hero`、`Morse`、`Ping`、`Pop`、`Purr`、`Sosumi`、`Submarine`、`Tink`（即 `/System/Library/Sounds/*.aiff`）。未知名称回退为 `Glass`；控制字符会被剥掉 |
 | `throttleMs` | `3000` | 节流间隔（毫秒）。间隔内**只发第一条，其余跳过**（不排队、不合并后补发）；设为 `0` 表示不节流 |
 | `notifyWhenFocused` | `false` | `true` 时即使 dsh 窗口在最前面也照发通知 |
+| `includeReason` | `true` | `false` 时通知正文**只有工具名**，不附带 `displayReason` / `reason`（隐私） |
 
 ## 通知是怎么发的
 
 按优先级依次尝试：
 
-1. **测试开关**（见下文）：设置 `DSH_APPROVAL_NOTIFY_LOG` 时只写日志，不执行任何命令；
-2. **terminal-notifier**：如果在 `/opt/homebrew/bin/terminal-notifier`、`/usr/local/bin/terminal-notifier` 或 dsh 进程的 `PATH` 里找到了它，就用它发：
+1. **测试开关**（见下文）：设置 `DSH_APPROVAL_NOTIFY_LOG` 时只写日志，不执行任何命令（路径必须是绝对路径且位于 `os.tmpdir()` 下才会真正写入；否则静默跳过写入，仍不发真实通知）；
+2. **terminal-notifier**：只在固定 Homebrew 绝对路径查找（**不再扫描 `PATH`**）：
+   - `/opt/homebrew/bin/terminal-notifier`
+   - `/usr/local/bin/terminal-notifier`
 
    ```sh
    terminal-notifier -title … -subtitle … -message … -sound <sound> -activate com.deepseek.dsh -group dsh-approval
@@ -122,18 +129,21 @@ lsappinfo info -only bundleid "$(lsappinfo front)"
 
 ## 测试开关（环境变量）
 
+这些变量主要给验收测试用。其中 **TN / OSASCRIPT / LOG** 的路径覆盖**仅当为绝对路径且位于 `os.tmpdir()` 下**时才会生效（假脚本 / 临时日志）；其它路径会被忽略，避免任意二进制执行或任意路径写入。
+
 | 变量 | 作用 |
 |---|---|
-| `DSH_APPROVAL_NOTIFY_LOG` | 设为文件路径后，不真正发通知，而是往该文件追加一行 JSON：`{"title","subtitle","body","sound"}` |
+| `DSH_APPROVAL_NOTIFY_LOG` | 设为**绝对且位于 tmpdir 下**的文件路径后，不真正发通知，而是往该文件追加一行 JSON：`{"title","subtitle","body","sound"}`。不安全路径：静默跳过写入，仍不发真实通知 |
 | `DSH_APPROVAL_NOTIFY_FRONT` | 模拟前台 App 的 bundle id。设置后不再调用 `lsappinfo`，用它判断“dsh 是否在前台” |
-| `DSH_APPROVAL_NOTIFY_TN` | 指定 terminal-notifier 的路径（通常指向假脚本）。设置后**只用它**，不再找默认位置；文件不存在视为没找到，直接走 osascript |
-| `DSH_APPROVAL_NOTIFY_OSASCRIPT` | 指定 osascript 的路径（默认 `/usr/bin/osascript`，通常指向假脚本） |
+| `DSH_APPROVAL_NOTIFY_TN` | 指定 terminal-notifier 路径（通常指向 tmpdir 里的假脚本）。仅绝对 + tmpdir 下生效；设置且合法时**只用它**；文件不存在视为没找到，直接走 osascript。非法覆盖则忽略，回落 Homebrew 候选路径 |
+| `DSH_APPROVAL_NOTIFY_OSASCRIPT` | 指定 osascript 路径（通常指向假脚本）。仅绝对 + tmpdir 下生效；否则默认 `/usr/bin/osascript` |
 | `DSH_APPROVAL_NOTIFY_TIMEOUT_MS` | 子进程超时毫秒数，取值夹在 `100`–`60000` 之间（非法值回退默认 5000） |
+| `DSH_APPROVAL_NOTIFY_DEBUG` | 设为任意非空字符串时，投递失败（TN / osascript）或不安全日志路径被跳过时，向 stderr 打一行短消息；默认关闭，且**仍不抛错** |
 
 手工试一下（不会弹任何系统通知）：
 
 ```sh
-DSH_APPROVAL_NOTIFY_LOG=/tmp/approval.log \
+DSH_APPROVAL_NOTIFY_LOG="$(mktemp -t approval.log)" \
 DSH_APPROVAL_NOTIFY_FRONT=com.apple.finder \
 node --input-type=module -e '
   import { apply } from "./lib/index.js";
@@ -141,33 +151,42 @@ node --input-type=module -e '
   apply({ on: (name, fn) => regs.push(fn) }, { sound: "Ping" });
   await regs[0]({ toolName: "bash", reason: "需要联网" }, () => "delegated");
 '
-cat /tmp/approval.log
-# {"title":"DeepSeek Harness","subtitle":"⚠️ 有操作等你批准","body":"bash：需要联网","sound":"Ping"}
+# 日志路径需在 os.tmpdir() 下才会写入
 ```
 
 ## 开发与测试
 
 ```sh
-node --test "tests/accept/*.test.mjs"
+npm test
+# 等同于：node --test "tests/accept/*.test.mjs"
 ```
 
-验收测试全部使用上面的测试开关（假命令脚本 + 日志模式），不会弹出系统通知。自己写测试或手工验证时请同样如此：要么设置 `DSH_APPROVAL_NOTIFY_LOG`，要么用假脚本指定 `DSH_APPROVAL_NOTIFY_TN` 和 `DSH_APPROVAL_NOTIFY_OSASCRIPT`，不要直接调用真实的 `terminal-notifier` 或 `/usr/bin/osascript`。
+CI：push / PR 到 `main` 时由 `.github/workflows/test.yml` 在 `ubuntu-latest` 上跑同一套验收测试（测试是纯 Node，不需要真实 macOS 通知）。
+
+验收测试全部使用上面的测试开关（假命令脚本 + 日志模式），不会弹出系统通知。自己写测试或手工验证时请同样如此：要么设置 `DSH_APPROVAL_NOTIFY_LOG`（tmpdir 下），要么用假脚本指定 `DSH_APPROVAL_NOTIFY_TN` 和 `DSH_APPROVAL_NOTIFY_OSASCRIPT`（同样须在 tmpdir 下），不要直接调用真实的 `terminal-notifier` 或 `/usr/bin/osascript`。
 
 `lib/index.js` 的导出：
 
 | 导出 | 说明 |
 |---|---|
 | `apply(ctx, config = {})` | 注册监听器（`ctx.on("approval/request", listener, { prepend: true })`）；节流状态属于这一次 `apply` |
-| `buildNotification(req)` | 由审批请求生成 `{ title, subtitle, body }` |
-| `appleScriptFor(n)` | 生成 `osascript -e` 用的 AppleScript 脚本（转义 `\` 和 `"`） |
+| `buildNotification(req, options?)` | 由审批请求生成 `{ title, subtitle, body }`；`options.includeReason` 默认 `true` |
+| `appleScriptFor(n)` | 生成 `osascript -e` 用的 AppleScript 脚本（转义 `\` 和 `"`；sound 会剥掉控制字符） |
 | `default` | `{ apply }` |
+
+## 安全与贡献
+
+- 漏洞披露：见 [SECURITY.md](SECURITY.md)（优先用 GitHub private security advisory）。
+- 贡献与分支保护：见 [CONTRIBUTING.md](CONTRIBUTING.md)。**在 GitHub UI 为 `main` 开启 branch protection，并要求 status check `test`**——仓库内容本身无法代开保护规则。
+- 变更记录：[CHANGELOG.md](CHANGELOG.md)。
 
 ## 已知限制
 
 - 只在 macOS 上有意义（`lsappinfo`、`osascript`、macOS 系统声音）。
 - “dsh 窗口在最前面”只在 dsh 桌面版（bundle id `com.deepseek.dsh`）下生效。
-- 通知正文不包含工具参数（审批请求本身不携带参数）。
-- 通知权限由 macOS 管理：如果终端通知被系统关闭，插件不会报错，只是你收不到。
+- 通知正文不包含工具参数（审批请求本身不携带参数）；可用 `includeReason: false` 进一步省略原因文案。
+- 通知权限由 macOS 管理：如果终端通知被系统关闭，插件不会报错，只是你收不到（可设 `DSH_APPROVAL_NOTIFY_DEBUG=1` 看投递失败日志）。
+- GitHub branch protection / required checks 需维护者在仓库设置里手动开启。
 
 ## 怎么做出来的
 

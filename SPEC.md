@@ -14,20 +14,25 @@ DeepSeek Harness（dsh）插件。每当 dsh 需要用户审批一个操作（�
 ## 文件与接口（验收测试按这里写，名字必须一致）
 
 ```
-package.json        name: "dsh-approval-notify-macos"，type: module，main: lib/index.js，零依赖（不要 dependencies）
+package.json        name: "dsh-approval-notify-macos"，type: module，main: lib/index.js，零依赖（不要 dependencies）；scripts.test 跑验收测试
 cordis.patch.yml    - insert: [ { id: approval-notify, name: dsh-approval-notify-macos } ]
 lib/index.js        插件本体
 README.md           中文说明：做什么、怎么装、配置项、测试开关
+SECURITY.md         漏洞披露说明
+CONTRIBUTING.md     PR 与 branch protection 建议
+CHANGELOG.md        版本变更
+.github/workflows/test.yml  push/PR → main 时跑 npm test（ubuntu-latest）
 ```
 
 `lib/index.js` 必须导出：
 
 - `apply(ctx, config = {})`：调用一次 `ctx.on("approval/request", listener, { prepend: true })`。节流状态属于这一次 `apply`（每次调用 `apply` 都是独立状态）。
-- `buildNotification(req)` → `{ title, subtitle, body }`
+- `buildNotification(req, options?)` → `{ title, subtitle, body }`
   - `title`：`"DeepSeek Harness"`
   - `subtitle`：`"⚠️ 有操作等你批准"`
-  - `body`：`"<toolName>：<displayReason（按上面规则取文本） ?? reason>"`；没有原因时只写工具名；没有工具名用 `"未知操作"`。去掉首尾空白，换行替换成空格，**最多 160 个字符**（超出截断并以 `…` 结尾，总长仍 ≤160）。
-- `appleScriptFor(n)` → 用于 `osascript -e` 的脚本字符串：`display notification "<body>" with title "<title>" subtitle "<subtitle>" sound name "<sound>"`，三个文本里的 `\` 和 `"` 都要转义（`\` → `\\`，`"` → `\"`）。
+  - `body`：默认 `"<toolName>：<displayReason（按上面规则取文本） ?? reason>"`；没有原因时只写工具名；没有工具名用 `"未知操作"`。去掉首尾空白，换行替换成空格，**最多 160 个字符**（超出截断并以 `…` 结尾，总长仍 ≤160）。
+  - `options.includeReason` 默认 `true`；为 `false` 时正文只有工具名。
+- `appleScriptFor(n)` → 用于 `osascript -e` 的脚本字符串：`display notification "<body>" with title "<title>" subtitle "<subtitle>" sound name "<sound>"`，三个文本里的 `\` 和 `"` 都要转义（`\` → `\\`，`"` → `\"`）；sound 在写入前剥掉控制字符。
 - `export default { apply }`
 
 ## 监听器行为
@@ -46,34 +51,38 @@ README.md           中文说明：做什么、怎么装、配置项、测试开
 
 ## 怎么发
 
-1. 如果设置了环境变量 `DSH_APPROVAL_NOTIFY_LOG=<文件路径>`（测试开关）：往该文件追加一行 JSON `{"title","subtitle","body","sound"}`，**不执行任何命令**。写入可以同步（`appendFileSync`），失败吞掉。
+1. 如果设置了环境变量 `DSH_APPROVAL_NOTIFY_LOG=<文件路径>`（测试开关）：**仅当路径为绝对路径且位于 `os.tmpdir()` 下**时，往该文件追加一行 JSON `{"title","subtitle","body","sound"}`，**不执行任何命令**。写入可以同步（`appendFileSync`），失败或不安全路径都吞掉 / 静默跳过。只要该环境变量非空，就不走真实通知投递。
 2. 否则，如果找得到 `terminal-notifier`：`terminal-notifier -title … -subtitle … -message … -sound <sound> -activate com.deepseek.dsh -group dsh-approval`（点击通知会切回 dsh）。
-   - 查找顺序：环境变量 `DSH_APPROVAL_NOTIFY_TN`（测试开关；设置了就只用它，文件不存在则视为没找到）→ `/opt/homebrew/bin/terminal-notifier` → `/usr/local/bin/terminal-notifier`。
+   - 查找顺序：环境变量 `DSH_APPROVAL_NOTIFY_TN`（测试开关；**仅绝对路径且位于 `os.tmpdir()` 下**时采用；设置且合法则只用它，文件不存在则视为没找到；非法覆盖忽略）→ `/opt/homebrew/bin/terminal-notifier` → `/usr/local/bin/terminal-notifier`。**不再扫描 `process.env.PATH`**。
    - **补发**：terminal-notifier 启动失败（spawn 报错）、退出码非 0（例如没有通知权限时退出码 3）、或超时，都改用第 3 步的 `osascript` **补发一次**。退出码为 0 则不补发。
-3. 否则（或补发时）用 osascript：`<osascript> -e <appleScriptFor(n)>`，`<osascript>` 默认 `/usr/bin/osascript`，可用环境变量 `DSH_APPROVAL_NOTIFY_OSASCRIPT` 覆盖（测试开关）。osascript 失败就算了，不再重试。
+3. 否则（或补发时）用 osascript：`<osascript> -e <appleScriptFor(n)>`，`<osascript>` 默认 `/usr/bin/osascript`，可用环境变量 `DSH_APPROVAL_NOTIFY_OSASCRIPT` 覆盖（测试开关；**仅绝对路径且位于 `os.tmpdir()` 下**时生效，否则回落默认）。osascript 失败就算了，不再重试。
 4. 子进程超时默认 5000 毫秒，可用环境变量 `DSH_APPROVAL_NOTIFY_TIMEOUT_MS` 覆盖（测试开关，取值限制在 100–60000），超时用 `SIGKILL` 结束子进程。
 5. 整个发送过程仍然**不阻塞监听器**：补发也发生在后台的通知流程里，`next()` 不等它。
+6. 可选调试：`DSH_APPROVAL_NOTIFY_DEBUG` 为非空时，TN 失败、osascript 失败、或不安全日志路径被跳过时 `console.error` 一行；仍不抛错。
 
 ## 配置项（cordis.patch.yml 里可写 config）
 
 | 字段 | 默认 | 含义 |
 |---|---|---|
-| `sound` | `"Glass"` | 提示音名称（macOS 系统声音） |
+| `sound` | `"Glass"` | 提示音名称；白名单（Basso/Blow/Bottle/Frog/Funk/Glass/Hero/Morse/Ping/Pop/Purr/Sosumi/Submarine/Tink），未知 → Glass；剥控制字符 |
 | `throttleMs` | `3000` | 节流间隔 |
 | `notifyWhenFocused` | `false` | dsh 在前台时是否也通知 |
+| `includeReason` | `true` | `false` 时正文只有工具名 |
 
 ## 测试开关（环境变量）
 
 | 变量 | 作用 |
 |---|---|
-| `DSH_APPROVAL_NOTIFY_LOG` | 写日志代替真正发通知 |
+| `DSH_APPROVAL_NOTIFY_LOG` | 写日志代替真正发通知（仅绝对 + tmpdir 下写入） |
 | `DSH_APPROVAL_NOTIFY_FRONT` | 模拟前台 App 的 bundle id，设置后不再调用 `lsappinfo` |
-| `DSH_APPROVAL_NOTIFY_TN` | 指定 terminal-notifier 路径（测试时指向假脚本） |
-| `DSH_APPROVAL_NOTIFY_OSASCRIPT` | 指定 osascript 路径（测试时指向假脚本） |
+| `DSH_APPROVAL_NOTIFY_TN` | 指定 terminal-notifier 路径（仅绝对 + tmpdir；测试假脚本） |
+| `DSH_APPROVAL_NOTIFY_OSASCRIPT` | 指定 osascript 路径（仅绝对 + tmpdir；测试假脚本） |
 | `DSH_APPROVAL_NOTIFY_TIMEOUT_MS` | 子进程超时毫秒数（100–60000） |
+| `DSH_APPROVAL_NOTIFY_DEBUG` | 非空时投递失败 / 跳过不安全路径打一行 stderr |
 
 ## 约束
 
 - 不联网、不读用户文件、不记录工具参数（本来也拿不到）。
 - 只用 Node 内置模块，零依赖。
 - 代码清晰，中文注释。
+- 不修改 `tests/accept/`（验收测试由规格作者维护）。
